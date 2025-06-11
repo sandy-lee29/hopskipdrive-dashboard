@@ -6,17 +6,17 @@ import os
 
 # --- Page Config ---
 st.set_page_config(layout="wide")
-st.title("AI-Powered App Review Intelligence Dashboard")
+st.title("HopSkipDrive Review Intelligence Dashboard")
 st.markdown("### Top Issues from Negative Reviews")
 st.markdown("""
-This page surfaces the **most common user-reported issues** from negative app reviews to help product and CX teams **uncover pain points that impact satisfaction and retention**.  
-**Filter by topic** and **company** to dive into **high-volume complaints**, track their average ratings, and review concrete examples of what users are saying — organized by top-level and sub-level issues. **AI-generated summaries** are included to quickly grasp each issue's definition and its potential impact on product experience.
+This page surfaces the **most common user-reported issues** from negative HopSkipDrive app reviews to help product and CX teams **uncover pain points that impact satisfaction and retention**.  
+**Filter by topic** to dive into **high-volume complaints**, track their average ratings, and review concrete examples of what users are saying — organized by top-level and sub-level issues. **AI-generated summaries** are included to quickly grasp each issue's definition and its potential impact on product experience.
 """)
 
 st.markdown("---")
 
 # --- OpenAI 설정 ---
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_API_KEY = "REMOVEDproj-R1ZhzwGkVbPKXaWylgJHMCUV4THcTanJhEviiqldhQfeRQAGaBZdksKPjR3mhIftS6qJk0_kBxT3BlbkFJ_lN2L8fLMubI3x031DnBndAve9u7ZPObAOgZy5JB2JeAmxneODnuq4GGgzJ8mhG_y-bZfGP9MA"
 if not OPENAI_API_KEY:
     st.error("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
     st.stop()
@@ -24,7 +24,7 @@ if not OPENAI_API_KEY:
 client = openai.Client(api_key=OPENAI_API_KEY)
 
 # --- Load Data ---
-DEFAULT_FILE_PATH = "Music_1000_subissues.csv"
+DEFAULT_FILE_PATH = "hopskip_subissues.csv"
 uploaded_file = st.sidebar.file_uploader("📂 Upload your review data", type=["csv"])
 
 try:
@@ -43,15 +43,13 @@ except FileNotFoundError:
 
 df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
 
-# --- Sidebar: Company Selection ---
-selected_company = st.sidebar.radio(
-    label="🎵 Select a Music App",
-    options=sorted(df["company"].dropna().unique()),
-    index=0
-)
-
 # --- Filter Data ---
-df_filtered = df[(df["sentiment"] != "Positive") & df["topic"].notna() & df["aspect"].notna() & (df["company"] == selected_company)]
+df_filtered = df[
+    (~df["sentiment"].isin(["Positive", "Neutral"])) &  # Exclude positive and neutral sentiments
+    (df["rating"] <= 3) &  # Only include ratings of 3 or less
+    (df["topic"].notna()) & 
+    (df["aspect"].notna())
+]
 
 # --- Topic Statistics 생성 ---
 topic_stats = {}
@@ -67,6 +65,8 @@ for topic in df_filtered["topic"].unique():
     }
 
 # --- Sidebar: Topic Selection ---
+st.sidebar.markdown("### 🔍 Select Topic to Analyze")
+
 def format_topic_label(topic):
     stats = topic_stats[topic]
     return f"""
@@ -76,16 +76,16 @@ def format_topic_label(topic):
 
 topics_sorted = sorted(topic_stats.keys(), key=lambda x: -topic_stats[x]["total_reviews"])
 radio_html = """<style>
-    .stRadio > div > label > div:first-child {{
+    .stRadio > div > label > div:first-child {
         display: flex;
         flex-direction: column;
         line-height: 1.4;
-    }}
+    }
 </style>"""
 st.sidebar.markdown(radio_html, unsafe_allow_html=True)
 
 selected_topic = st.sidebar.radio(
-    label="🎧 Topics",
+    label="📱 Topics",
     options=topics_sorted,
     format_func=lambda x: x
 )
@@ -101,8 +101,24 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
+st.sidebar.markdown("---")
+
+# --- Sidebar: All Topics Overview ---
+st.sidebar.markdown("### 📊 All Topics Overview")
+for topic in topics_sorted:
+    stats = topic_stats[topic]
+    st.sidebar.markdown(
+        f"""
+        <div style='background-color:#F3E5F5; padding:8px; border-radius:4px; margin-bottom:8px;'>
+            <strong>{topic.capitalize()}</strong><br>
+            <span style='font-size: 0.9em;'>Review# {stats['total_reviews']} &nbsp;&nbsp; Review% {stats['review_percentage']}% &nbsp;&nbsp; Avg. Rating {stats['avg_rating']}/5</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 # --- Section Header ---
-st.subheader(f"Top {selected_topic} Issues - {selected_company}")
+st.subheader(f"Top {selected_topic} Issues")
 issues_df = df_filtered[df_filtered["topic"] == selected_topic]
 
 # --- OpenAI 응답 함수 ---

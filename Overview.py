@@ -7,40 +7,46 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # --- Streamlit 기본 설정 ---
-st.set_page_config(page_title="App Review Dashboard", layout="wide")
-st.title("AI-Powered App Review Intelligence Dashboard")
+st.set_page_config(page_title="HopSkipDrive Review Dashboard", layout="wide")
+st.title("AI-Powered HopSkipDrive Review Intelligence Dashboard")
 st.markdown("### Overview: Ratings & Sentiment Landscape")
-st.markdown("""
-Welcome to the App Review Analysis Dashboard. This tool is designed to help product and CX teams **identify** and **prioritize the most critical issues** through in-depth analysis of app store reviews.
-""")
 
 # --- Section 2: Dataset Summary ---
-st.markdown("""
-In this demo, we explore reviews from **four major music streaming platforms**: 🎵**YouTube Music, Spotify, Amazon Music, and Apple Music**🎵. On this Overview page, you can interactively explore **how review ratings are distributed across** various dimensions, including **sentiment, topics**, and **time**. 
-""")
+st.write(
+    """
+    Welcome to the HopSkipDrive Review Analysis Dashboard. This tool helps Product and CX teams **uncover** and 
+    **prioritize the most critical user issues** through structured analysis of app store reviews.
+    In this dashboard, we analyze reviews from **HopSkipDrive**, examining how user ratings are distributed across 
+    dimensions such as **sentiment**, **topics**, and **time** — offering a clear view into the voice of the customer.
+    """
+)
 
-st.markdown("""
-**Don’t have a dataset yet? No problem!** You can easily generate one using our [GitHub scraper](https://github.com/sandy-lee29/musicapp-review-analysis), which pulls reviews from the Google Play and Apple App Stores, and leverages **LLM-powered prompt engineering** to **classify sentiment** and **tag topics & issues** — producing a clean, **ready-to-use CSV file** for this dashboard.
-""")
+st.markdown(
+    """
+    **Don’t have a dataset yet?**  
+    No problem — you can generate one instantly using our built-in scraper. It pulls reviews from the 
+    Google Play Store and uses **LLM-powered prompt engineering** to classify sentiment and tag user-reported 
+    issues, delivering a clean, **ready-to-use CSV file** for this dashboard.
+    """
+)
 
 st.markdown("---")
 
 # --- Section 3: File Upload ---
 st.markdown("### 📁 Upload an App Review Dataset (CSV)")
 uploaded_file = st.file_uploader(
-    "Upload an App Review Dataset (CSV) (🔗 Review dataset can be automatically extracted from [this github repo](https://github.com/sandy-lee29/musicapp-review-analysis))",
+    "Upload an App Review Dataset (CSV)",
     type="csv"
 )
 
- 
-
-DEFAULT_FILE_PATH = "Music_1000_subissues.csv"
+DEFAULT_FILE_PATH = "hopskip_subissues.csv"
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
 else:
     df = pd.read_csv(DEFAULT_FILE_PATH)
     st.success(f"No file uploaded — using default dataset: `{DEFAULT_FILE_PATH}`")
 st.markdown("<br>", unsafe_allow_html=True)
+
 # --- 날짜 처리 ---
 df['time'] = pd.to_datetime(df['time'])
 df['year'] = df['time'].dt.year
@@ -48,27 +54,13 @@ df['month'] = df['time'].dt.strftime('%Y-%m')
 min_year, max_year = df['year'].min(), df['year'].max()
 year_range = f"{min_year} ~ {max_year}"
 
-# 더 강조된 스타일의 마크다운 헤더
-st.markdown("""
-<div style="background-color:#f5f5f5; padding:10px 15px; border-radius:8px; font-size:18px;">
-🎧 <strong>Select a Music App to Analyze</strong>
-</div>
-""", unsafe_allow_html=True)
-
-selected_company = st.radio(label="", options=["Amazon Music", "Apple Music", "Spotify", "YouTube Music"], index=0)
-
-
-
-# --- 데이터 필터링 ---
-df = df[df["company"] == selected_company]
-st.markdown("<br>", unsafe_allow_html=True)
 # --- Sample Reviews ---
 st.subheader("Sample Reviews")
 st.write(df[["review_id", "review", "rating", "time", "aspect"]].head())
 
 # --- Key Metrics ---
 st.markdown("<br>", unsafe_allow_html=True)
-st.subheader(f"Key Metrics from {selected_company} Reviews")
+st.subheader("Key Metrics from HopSkipDrive Reviews")
 col1, col2 = st.columns(2)
 with col1:
     st.metric(label="Total Reviews Collected", value=len(df))
@@ -79,7 +71,7 @@ with col2:
 
 # --- Average Rating by Category ---
 st.markdown("<br>", unsafe_allow_html=True)
-st.subheader(f"{selected_company} Reviews: Average Rating by Category")
+st.subheader("HopSkipDrive Reviews: Average Rating by Category")
 st.write("Below, you can visualize the **average rating** based on different categories such as **sentiment, topic, and year**.")
 
 x_column = st.selectbox("Select a category to analyze average rating", ['sentiment', 'topic', 'year'])
@@ -93,7 +85,7 @@ st.pyplot(fig)
 
 # --- 📊 Topic-based Yearly & Monthly Trends ---
 st.markdown("<br>", unsafe_allow_html=True)
-st.subheader(f"📊 Visual Trend of {selected_company} Review Ratings")
+st.subheader("📊 Visual Trend of HopSkipDrive Review Ratings")
 st.write("You can filter the review by **topic** to analyze yearly and monthly trends in average rating.")
 
 selected_topic = st.selectbox("Select a topic value", df["topic"].dropna().unique())

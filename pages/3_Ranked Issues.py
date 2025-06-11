@@ -15,11 +15,11 @@ if 'topic_summary' not in st.session_state:
 
 # --- Page Config ---
 st.set_page_config(layout="wide")
-st.title("AI-Powered App Review Intelligence Dashboard")
+st.title("HopSkipDrive Review Intelligence Dashboard")
 st.markdown("#### 🎯 Company Insights: Ranked Issues & Business Impact")
 
-# --- OpenAI API Key from environment variable ---
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+# --- OpenAI API Key ---
+OPENAI_API_KEY = "REMOVEDproj-R1ZhzwGkVbPKXaWylgJHMCUV4THcTanJhEviiqldhQfeRQAGaBZdksKPjR3mhIftS6qJk0_kBxT3BlbkFJ_lN2L8fLMubI3x031DnBndAve9u7ZPObAOgZy5JB2JeAmxneODnuq4GGgzJ8mhG_y-bZfGP9MA"
 if not OPENAI_API_KEY:
     st.error("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
     st.stop()
@@ -27,16 +27,16 @@ if not OPENAI_API_KEY:
 client = openai.Client(api_key=OPENAI_API_KEY)
 
 st.markdown("""
-This dashboard analyzes user reviews to **uncover the most impactful issues affecting product experience** and **potential revenue**.
+This dashboard analyzes HopSkipDrive user reviews to **uncover the most impactful issues affecting ride experience** and **potential revenue**.
 We estimate **churn rate** and **revenue impact score** using the proportion of negative reviews and their frequency.
-These metrics are designed to help **Product teams prioritize issues** that matter most.
+These metrics are designed to help **Product and CX teams prioritize issues** that matter most for improving our ride-sharing service.
 """)
 st.markdown("---")
 
 # Step 1: Upload file or use default
 def load_data():
     uploaded_file = st.file_uploader("Upload your review CSV file", type=["csv"])
-    DEFAULT_FILE = "spotify_subissues.csv"
+    DEFAULT_FILE = "hopskip_subissues.csv"
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         st.success("✅ File uploaded successfully.")
@@ -64,24 +64,12 @@ import matplotlib.pyplot as plt
 st.subheader("Step 2. Rank Topics by Estimated Revenue Risk")
 
 st.markdown("""
-Click the button below to estimate potential **churn rate** and **revenue risk**, based on the proportion of negative reviews and how frequently each issue appears.
-These proxy metrics help **identify which topics and issues are most likely** to trigger **user dissatisfaction** and cause **potential revenue risk**.
+Click the button below to estimate potential **churn risk** and **revenue impact** based on review data.
 
-#### Methodology:
-1. **Churn Rate Calculation**:
-   - Base rate: 50% of negative review proportion
-   - Added small random variation (±2%) to account for uncertainty
-   - Formula: `churn_rate = (negative_reviews / total_reviews) * 0.5 + random_noise`
-
-2. **Revenue Risk Score**:
-   - Combines churn rate with review volume
-   - Higher volume of negative reviews = higher risk
-   - Formula: `revenue_risk = churn_rate * number_of_reviews + random_noise`
-
-3. **Ranking Logic**:
-   - Topics/issues are ranked by their revenue risk score
-   - Higher scores indicate greater potential impact on business
-   - Considers both severity (churn rate) and scale (review volume)
+#### 📊 Risk Score Methodology
+- **Churn Risk**: Calculated from negative review % with small variation to account for uncertainty
+- **Revenue Risk**: Combines churn risk with review volume to estimate business impact
+- **Reliability**: Requires minimum 3 reviews, ensures scores stay within realistic bounds
 """)
 
 if st.button("Create Proxy Metrics"):
@@ -92,9 +80,29 @@ if st.button("Create Proxy Metrics"):
         neg_review_pct=('sentiment', lambda x: (x == 'negative').mean())
     ).reset_index()
 
+    # Constants for risk calculation
+    MIN_REVIEWS_THRESHOLD = 3
+    NOISE_FACTOR = 0.01
+    REVENUE_NOISE_FACTOR = 0.5
+
     np.random.seed(42)
-    topic_summary['churn_rate'] = topic_summary['neg_review_pct'] * 0.5 + np.random.normal(0, 0.02, len(topic_summary))
-    topic_summary['estimated_revenue_risk_score'] = topic_summary['churn_rate'] * topic_summary['num_reviews'] + np.random.normal(0, 2, len(topic_summary))
+    
+    # Calculate churn rate with minimum review threshold
+    topic_summary['churn_rate'] = np.where(
+        topic_summary['num_reviews'] >= MIN_REVIEWS_THRESHOLD,
+        topic_summary['neg_review_pct'] * 0.5 + np.random.normal(0, NOISE_FACTOR, len(topic_summary)),
+        0  # Set churn rate to 0 for topics with too few reviews
+    )
+    
+    # Ensure churn rate is between 0 and 1
+    topic_summary['churn_rate'] = topic_summary['churn_rate'].clip(0, 1)
+    
+    # Calculate revenue risk score with review volume weight
+    topic_summary['estimated_revenue_risk_score'] = (
+        topic_summary['churn_rate'] * 
+        topic_summary['num_reviews'] * 
+        (1 + np.random.normal(0, REVENUE_NOISE_FACTOR, len(topic_summary)).clip(-0.5, 0.5))  # Clipped noise
+    )
 
     # Top issue-level summary
     top_issue_summary_all = df.groupby(['topic', 'top_issue']).agg(
@@ -103,16 +111,30 @@ if st.button("Create Proxy Metrics"):
         neg_review_pct=('sentiment', lambda x: (x == 'negative').mean())
     ).reset_index()
 
-    top_issue_summary_all['churn_rate'] = top_issue_summary_all['neg_review_pct'] * 0.5 + np.random.normal(0, 0.02, len(top_issue_summary_all))
-    top_issue_summary_all['estimated_revenue_risk_score'] = top_issue_summary_all['churn_rate'] * top_issue_summary_all['num_reviews'] + np.random.normal(0, 2, len(top_issue_summary_all))
+    # Apply same risk calculation logic to top issues
+    top_issue_summary_all['churn_rate'] = np.where(
+        top_issue_summary_all['num_reviews'] >= MIN_REVIEWS_THRESHOLD,
+        top_issue_summary_all['neg_review_pct'] * 0.5 + np.random.normal(0, NOISE_FACTOR, len(top_issue_summary_all)),
+        0
+    )
+    top_issue_summary_all['churn_rate'] = top_issue_summary_all['churn_rate'].clip(0, 1)
+    
+    top_issue_summary_all['estimated_revenue_risk_score'] = (
+        top_issue_summary_all['churn_rate'] * 
+        top_issue_summary_all['num_reviews'] * 
+        (1 + np.random.normal(0, REVENUE_NOISE_FACTOR, len(top_issue_summary_all)).clip(-0.5, 0.5))
+    )
 
     st.session_state['topic_summary'] = topic_summary
     st.session_state['top_issue_summary_all'] = top_issue_summary_all
     st.success("✅ Proxy metrics created successfully!")
 
     st.subheader("Topic-level Revenue Risk Scores")
-    st.markdown("We first estimate risk at the topic level. Later, we'll zoom in to analyze specific issues within each topic.")
-    st.dataframe(topic_summary.sort_values(by="estimated_revenue_risk_score", ascending=False).round(2))
+    st.markdown("Below are the risk scores for each topic, sorted by potential revenue impact. Topics with fewer than 3 reviews are excluded for reliability.")
+    
+    # Show only topics with sufficient reviews
+    reliable_topics = topic_summary[topic_summary['num_reviews'] >= MIN_REVIEWS_THRESHOLD]
+    st.dataframe(reliable_topics.sort_values(by="estimated_revenue_risk_score", ascending=False).round(2))
 
     st.markdown("#### Top Issue Categories Driving Revenue Risk")
     st.markdown("""This chart highlights which **topics (issue categories)** have the **highest potential impact on revenue risk**.""")
@@ -146,7 +168,6 @@ As a product team, our key question is:
 - For example, **{top1['topic']}** (score: {top1['estimated_revenue_risk_score']:.1f}) stands out as a top driver, indicating that unresolved issues in this area could lead to significant revenue loss or churn.
 - **{top2['topic']}** and **{top3['topic']}** also rank as high-priority categories for product improvements, as they are strongly linked to user dissatisfaction and churn risk.
 - Product and CX teams should investigate these topics to **identify root causes and prioritize fixes or UX improvements** accordingly.
-- Interestingly, **{lowest['topic']}** is associated with the **lowest revenue risk**, suggesting it may be less urgent to address.
 """
     st.markdown(summary_text)
 
@@ -159,8 +180,13 @@ st.markdown("""
 Based on the **topic-level results above**, select a topic below to **drill down** and identify which **specific issues** within that category contribute most to predicted revenue risk.
 """)
 
-all_topics = df['topic'].dropna().unique().tolist()
-selected_topic = st.selectbox("⬇️ Pick a topic to drill down", sorted(all_topics))
+all_topics = sorted(df['topic'].dropna().unique().tolist())
+# Move "driver_related" to the beginning of the list if it exists
+if "driver_related" in all_topics:
+    all_topics.remove("driver_related")
+    all_topics.insert(0, "driver_related")
+
+selected_topic = st.selectbox("⬇️ Pick a topic to drill down", all_topics)
 
 # Check if proxy metrics have been created
 if st.session_state['top_issue_summary_all'].empty:
@@ -173,42 +199,51 @@ topic_df = top_issue_summary_all[top_issue_summary_all['topic'] == selected_topi
 
 # Ranking top issues by estimated revenue risk score
 topic_df_sorted = topic_df.sort_values(by='estimated_revenue_risk_score', ascending=False)
+topic_df_sorted = topic_df_sorted[topic_df_sorted['estimated_revenue_risk_score'] > 0]  # Filter out negative values
 
 st.markdown(f"#### 🔍 Drill-down View: Specific Issues within `{selected_topic}`")
 
 st.markdown("""
 This chart ranks **top user complaints** within this topic by their **projected impact on revenue risk**, guiding prioritization for product teams.
+
+> Note: We only show issues with positive revenue risk scores, as negative scores typically result from:
+> - Very small number of reviews making the calculation less reliable
+> - Statistical noise in the risk estimation process
+> - Issues with extremely low negative review percentages
 """)
 
-fig = px.bar(
-    topic_df_sorted,
-    x="estimated_revenue_risk_score",
-    y="top_issue",
-    orientation="h",
-    labels={"estimated_revenue_risk_score": "Estimated Revenue Risk Score"},
-    color_discrete_sequence=["#d62728"],
-    text="estimated_revenue_risk_score"
-)
-fig.update_layout(
-    font=dict(size=14),
-    yaxis_title=None,
-    xaxis_title="Estimated Revenue Risk Score",
-    xaxis_title_font=dict(size=16),
-    plot_bgcolor="white",
-    margin=dict(t=60, l=10, r=10, b=40)
-)
-fig.update_traces(texttemplate='%{text:.1f}', textposition='outside')
-st.plotly_chart(fig, use_container_width=True)
+if len(topic_df_sorted) == 0:
+    st.info("No significant revenue risk issues found in this topic. This might be due to:\n- Low number of negative reviews\n- Very low churn risk in this category")
+else:
+    fig = px.bar(
+        topic_df_sorted,
+        x="estimated_revenue_risk_score",
+        y="top_issue",
+        orientation="h",
+        labels={"estimated_revenue_risk_score": "Estimated Revenue Risk Score"},
+        color_discrete_sequence=["#d62728"],
+        text="estimated_revenue_risk_score"
+    )
+    fig.update_layout(
+        font=dict(size=14),
+        yaxis_title=None,
+        xaxis_title="Estimated Revenue Risk Score",
+        xaxis_title_font=dict(size=16),
+        plot_bgcolor="white",
+        margin=dict(t=60, l=10, r=10, b=40)
+    )
+    fig.update_traces(texttemplate='%{text:.1f}', textposition='outside')
+    st.plotly_chart(fig, use_container_width=True)
 
-# Top issue summary text
-top_issue_name = topic_df_sorted.iloc[0]['top_issue'] if not topic_df_sorted.empty else "N/A"
+    # Top issue summary text
+    top_issue_name = topic_df_sorted.iloc[0]['top_issue'] if not topic_df_sorted.empty else "N/A"
 
-st.markdown(f"""
+    st.markdown(f"""
 Within the topic **{selected_topic}**, this chart ranks the **specific user complaints** that contribute most to **estimated revenue risk**.
 
-- The issue **{top_issue_name}** ranks highest, indicating that recurring frustrations in this feature may significantly impact **user retention** and **subscription decisions**.
-- Addressing this issue could have a direct impact on **reducing churn** and **enhancing the user experience**.
-- Product and CX teams should prioritize this finding in **roadmap planning** and consider **targeted feature enhancements**.
+- The issue **{top_issue_name}** ranks highest, indicating that recurring frustrations with this aspect of our ride service may significantly impact **user retention** and **booking decisions**.
+- Addressing this issue could have a direct impact on **reducing churn** and **enhancing the ride experience**.
+- Product and CX teams should prioritize this finding in **roadmap planning** and consider **targeted service improvements**.
 """)
 
 st.markdown("---")
@@ -225,8 +260,8 @@ Using GPT-based analysis, we summarize business impact and product recommendatio
 """)
 
 # Basic info
-company = "Spotify"
-industry = "music streaming"
+company = "HopSkipDrive"
+industry = "ride-sharing"
 
 topic_summary = st.session_state['topic_summary']
 top_issue_summary_all = st.session_state['top_issue_summary_all']
