@@ -16,7 +16,7 @@ This page surfaces the **most common user-reported issues** from negative HopSki
 st.markdown("---")
 
 # --- OpenAI 설정 ---
-OPENAI_API_KEY = "REMOVEDproj-R1ZhzwGkVbPKXaWylgJHMCUV4THcTanJhEviiqldhQfeRQAGaBZdksKPjR3mhIftS6qJk0_kBxT3BlbkFJ_lN2L8fLMubI3x031DnBndAve9u7ZPObAOgZy5JB2JeAmxneODnuq4GGgzJ8mhG_y-bZfGP9MA"
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     st.error("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
     st.stop()
